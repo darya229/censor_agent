@@ -14,7 +14,7 @@ def generate_pdf(markdown_content):
 
 deepseek_llm = ChatDeepSeek(
     model="deepseek-chat",
-    api_key="...",
+    api_key=st.secrets["MY_LLM"],
     temperature=1,
     streaming=True
 )
@@ -68,5 +68,6 @@ if user_input:
             key="download_pdf",
             on_click="ignore"
         )
+
 
 
