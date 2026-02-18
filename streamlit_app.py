@@ -6,11 +6,10 @@ from langchain_deepseek import ChatDeepSeek
 from markdown_pdf import MarkdownPdf, Section
 from io import BytesIO
 from dotenv import load_dotenv
-from loguru import logger 
-load_dotenv()
+
 import os
 from datetime import datetime
-API_DEEPSEEK=os.getenv("API_DEEPSEEK")
+
 import time
 
 def generate_pdf(markdown_content, filename):
@@ -22,7 +21,7 @@ def generate_pdf(markdown_content, filename):
 
 deepseek_llm = ChatDeepSeek(
     model="deepseek-chat",
-    api_key=API_DEEPSEEK,
+    api_key=st.secrets["MY_LLM"],
     temperature=1,
     streaming=True
 )
@@ -102,5 +101,6 @@ if user_input:
             )
     else:
         st.warning("Пожалуйста, загрузите документ")
+
 
 
