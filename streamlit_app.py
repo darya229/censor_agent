@@ -290,14 +290,14 @@ def generate_pdf(markdown_content, filename, df = None):
 
 deepseek_llm = ChatDeepSeek(
     model="deepseek-chat",
-    api_key=API_DEEPSEEK,
+    api_key=st.secrets["MY_LLM"],
     temperature=1,
     streaming=True
 )
 
 deepseek_llm_not_streaming = ChatDeepSeek(
     model="deepseek-chat",
-    api_key=API_DEEPSEEK,
+    api_key=st.secrets["MY_LLM"],
     temperature=1
 )
 
@@ -435,5 +435,6 @@ if user_input:
             )
     else:
         st.warning("Пожалуйста, загрузите документ")
+
 
 
