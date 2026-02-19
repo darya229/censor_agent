@@ -27,11 +27,15 @@ def generate_pdf(markdown_content, filename, df = None):
     pdf.meta["title"] = 'Отчет'
     pdf.meta["author"] = 'AI Assistant'
     pdf_content = f"Отчет: {filename}\n\n "
-    pdf_content += "*Анализ сентимента*"
+
+    pdf_content += "#Анализ аналитического отчета  #"
+
+    # Добавляем текстовый контент
+    pdf_content += markdown_content
 
 
     if df is not None and not df.empty:
-
+        pdf_content += "*Анализ сентимента*"
         # Создаем фигуру и оси
         fig, ax = plt.subplots(figsize=(12, 6))
 
@@ -82,24 +86,19 @@ def generate_pdf(markdown_content, filename, df = None):
 
         pdf_content += df.to_markdown()
 
-    pdf_content += "#Анализ аналитического отчета  #"
-
-    # Добавляем текстовый контент
-    pdf_content += markdown_content
-
     pdf.add_section(Section(pdf_content, toc=False))
     return pdf
 
 deepseek_llm = ChatDeepSeek(
     model="deepseek-chat",
-    api_key=st.secrets["MY_LLM"],
+    api_key=API_DEEPSEEK,
     temperature=1,
     streaming=True
 )
 
 deepseek_llm_not_streaming = ChatDeepSeek(
     model="deepseek-chat",
-    api_key=st.secrets["MY_LLM"],
+    api_key=API_DEEPSEEK,
     temperature=1
 )
 
@@ -150,93 +149,48 @@ if user_input:
             st.write("✅ Готов расчет сентимента")
             try:
                 companies_sentiment = json.loads(response_sentiment.content)
+                df = pd.DataFrame(companies_sentiment)
+
+                # Создаем точечную диаграмму
+                fig = px.scatter(df, 
+                                x='company', 
+                                y='sentiment',
+                                title='Сентимент по компаниям',
+                                labels={'company': 'Компания', 'sentiment': 'Сентимент'},
+                                size=[20] * len(df),  # Размер точек
+                                color_discrete_sequence=['darkgrey'])
+
+                # Добавляем горизонтальную линию на отметке 5
+                fig.add_hline(y=5, 
+                            line_dash="solid", 
+                            line_color="black",
+                            line_width=1,
+                            annotation_text="нейтральный сентимент",
+                            annotation_position="top left")
+
+                # Настраиваем отображение
+                fig.update_layout(
+                    xaxis_title="Компания",
+                    yaxis_title="Сентимент",
+                    showlegend=False,
+                    yaxis=dict(
+                        range=[0, 10]  # Устанавливаем диапазон для лучшей видимости
+                    )
+                )
+
+                # Настраиваем внешний вид точек
+                fig.update_traces(
+                    marker=dict(
+                        size=15,  # Размер точек
+                        line=dict(width=1, color='darkgrey')  # Обводка точек
+                    )
+                )
+
+                # Показываем график
+                st.plotly_chart(fig)
             except:
                 st.warning('Не удалось прочитать JSON объект')
                 st.write(response_sentiment.content)
-
-            df = pd.DataFrame(companies_sentiment)
-
-            # Создаем точечную диаграмму
-            fig = px.scatter(df, 
-                            x='company', 
-                            y='sentiment',
-                            title='Сентимент по компаниям',
-                            labels={'company': 'Компания', 'sentiment': 'Сентимент'},
-                            size=[20] * len(df),  # Размер точек
-                            color_discrete_sequence=['darkgrey'])
-
-            # Добавляем горизонтальную линию на отметке 5
-            fig.add_hline(y=5, 
-                        line_dash="solid", 
-                        line_color="black",
-                        line_width=1,
-                        annotation_text="нейтральный сентимент",
-                        annotation_position="top left")
-
-            # Настраиваем отображение
-            fig.update_layout(
-                xaxis_title="Компания",
-                yaxis_title="Сентимент",
-                showlegend=False,
-                yaxis=dict(
-                    range=[0, 10]  # Устанавливаем диапазон для лучшей видимости
-                )
-            )
-
-            # Настраиваем внешний вид точек
-            fig.update_traces(
-                marker=dict(
-                    size=15,  # Размер точек
-                    line=dict(width=1, color='darkgrey')  # Обводка точек
-                )
-            )
-
-            # Показываем график
-            st.plotly_chart(fig)
-
-            ### сохраняем в matplotlib формате для передачи в PDF ###
-
-            # # Создаем фигуру и оси
-            # fig_matplotlib, ax = plt.subplots(figsize=(12, 6))
-
-            # # Создаем точечную диаграмму
-            # companies = range(len(df))
-            # ax.scatter(companies, df['sentiment'], 
-            #         s=225,  # Размер точек (15^2)
-            #         c='darkgrey',
-            #         edgecolors='darkgrey',
-            #         linewidths=1,
-            #         zorder=2)
-
-            # # Добавляем горизонтальную линию на отметке 5
-            # ax.axhline(y=5, color='black', linestyle='-', linewidth=1, zorder=1)
-
-            # # Добавляем текст для линии
-            # ax.text(0.02, 5.1, 'нейтральный сентимент', 
-            #         transform=ax.get_yaxis_transform(),
-            #         fontsize=10,
-            #         verticalalignment='bottom')
-
-            # # Настраиваем подписи
-            # ax.set_xlabel('Компания', fontsize=12)
-            # ax.set_ylabel('Сентимент', fontsize=12)
-            # ax.set_title('Сентимент по компаниям', fontsize=14, pad=15)
-
-            # # Устанавливаем метки на оси X
-            # ax.set_xticks(companies)
-            # ax.set_xticklabels(df['company'], rotation=45, ha='right')
-
-            # # Устанавливаем диапазон для оси Y
-            # ax.set_ylim(0, 10)
-
-            # # Добавляем сетку для лучшей читаемости
-            # ax.grid(True, alpha=0.3, linestyle='--', linewidth=0.5)
-
-            # # Убираем легенду
-            # ax.legend_.remove() if ax.legend_ else None
-
-
-
 
             ### Анализируем текст ####
             temp_message = st.empty()
@@ -278,6 +232,5 @@ if user_input:
             )
     else:
         st.warning("Пожалуйста, загрузите документ")
-
 
 
