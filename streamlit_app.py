@@ -1,29 +1,61 @@
 import streamlit as st
 import docx
 from langchain_core.messages import SystemMessage, HumanMessage
-from prompts import SYSTEM_PROMPT, USER_PROMT, RULES
+from prompts import SYSTEM_PROMPT_v1, SYSTEM_PROMPT_v2, USER_PROMT, RULES, PROMPT_SENTIMENT
 from langchain_deepseek import ChatDeepSeek
 from markdown_pdf import MarkdownPdf, Section
 from io import BytesIO
 from dotenv import load_dotenv
+from loguru import logger 
+import plotly.io as pio
+import base64
+from io import BytesIO
 
+load_dotenv()
 import os
+import json
+import plotly.express as px
+import pandas as pd
 from datetime import datetime
-
+API_DEEPSEEK=os.getenv("API_DEEPSEEK")
 import time
 
-def generate_pdf(markdown_content, filename):
+def generate_pdf(markdown_content, filename, plotly_fig=None, df = None):
     pdf = MarkdownPdf()
     pdf.meta["title"] = 'Отчет'
     pdf.meta["author"] = 'AI Assistant'
-    pdf.add_section(Section(f"Отчет: {filename} \n\n {markdown_content}", toc=False))
+    pdf_content = f"Отчет: {filename}\n\n "
+    pdf_content += "*Анализ сентимента*"
+
+
+    if plotly_fig:
+        # Конвертируем plotly график в base64 изображение
+        img_bytes = pio.to_image(plotly_fig, format='png')
+        img_base64 = base64.b64encode(img_bytes).decode('utf-8')
+        pdf_content += f"![График сентимента](data:image/png;base64,{img_base64})\n\n"
+
+    if df is not None and not df.empty:
+        pdf_content += df.to_markdown()
+
+    pdf_content += "#Анализ аналитического отчета  #"
+
+    # Добавляем текстовый контент
+    pdf_content += markdown_content
+
+    pdf.add_section(Section(pdf_content, toc=False))
     return pdf
 
 deepseek_llm = ChatDeepSeek(
     model="deepseek-chat",
-    api_key=st.secrets["MY_LLM"],
+    api_key=API_DEEPSEEK,
     temperature=1,
     streaming=True
+)
+
+deepseek_llm_not_streaming = ChatDeepSeek(
+    model="deepseek-chat",
+    api_key="sk-3f2c0bab71504aa99dc99c0dda1c0b28",
+    temperature=1
 )
 
 # deepseek_llm = ChatDeepSeek(
@@ -64,7 +96,64 @@ if user_input:
         with st.chat_message("ai", avatar=":material/android:"):
             temp_message = st.empty()
             temp_message.write("⏳ Обработка запроса...")
-            system_instructions = SYSTEM_PROMPT.format(rules=RULES, date = datetime.now().strftime("%Y-%m-%d"))
+
+            ### Готовим сентимент #####
+
+            messages_sentiment = [HumanMessage(content=PROMPT_SENTIMENT.format(report_text = content))]
+            response_sentiment = deepseek_llm.invoke(messages_sentiment)
+            temp_message.empty()
+            st.write("✅ Готов расчет сентимента")
+            try:
+                companies_sentiment = json.loads(response_sentiment.content)
+            except:
+                st.warning('Не удалось прочитать JSON объект')
+                st.write(response_sentiment.content)
+
+            df = pd.DataFrame(companies_sentiment)
+
+            # Создаем точечную диаграмму
+            fig = px.scatter(df, 
+                            x='company', 
+                            y='sentiment',
+                            title='Сентимент по компаниям',
+                            labels={'company': 'Компания', 'sentiment': 'Сентимент'},
+                            size=[20] * len(df),  # Размер точек
+                            color_discrete_sequence=['darkgrey'])
+
+            # Добавляем горизонтальную линию на отметке 5
+            fig.add_hline(y=5, 
+                        line_dash="solid", 
+                        line_color="black",
+                        line_width=1,
+                        annotation_text="нейтральный сентимент",
+                        annotation_position="top left")
+
+            # Настраиваем отображение
+            fig.update_layout(
+                xaxis_title="Компания",
+                yaxis_title="Сентимент",
+                showlegend=False,
+                yaxis=dict(
+                    range=[0, 10]  # Устанавливаем диапазон для лучшей видимости
+                )
+            )
+
+            # Настраиваем внешний вид точек
+            fig.update_traces(
+                marker=dict(
+                    size=15,  # Размер точек
+                    line=dict(width=1, color='darkgrey')  # Обводка точек
+                )
+            )
+
+            # Показываем график
+            st.plotly_chart(fig)
+
+
+            ### Анализируем текст ####
+            temp_message = st.empty()
+            temp_message.write("⏳ Анализ отчета...")
+            system_instructions = SYSTEM_PROMPT_v1.format(rules=RULES, date = datetime.now().strftime("%Y-%m-%d"))
             user_instructions = USER_PROMT.format(additional_instructions = user_input.get("text", " "),
                                                    analytical_report = content)
             # logger.info(f"Date: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")} \n\n SYSTEM_PROMPT: \n\n {system_instructions} \n")
@@ -84,7 +173,7 @@ if user_input:
                 st.write("✅ Ответ готов")
 
             response = st.write_stream(generate_response)
-            download_content = generate_pdf(response, user_input.files[0].name)
+            download_content = generate_pdf(response, user_input.files[0].name, fig, df)
 
             # Сохраняем в буфер
             buffer = BytesIO()
@@ -101,6 +190,5 @@ if user_input:
             )
     else:
         st.warning("Пожалуйста, загрузите документ")
-
 
 
