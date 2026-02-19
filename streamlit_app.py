@@ -98,7 +98,7 @@ deepseek_llm = ChatDeepSeek(
 
 deepseek_llm_not_streaming = ChatDeepSeek(
     model="deepseek-chat",
-    api_key=st.secrets["MY_LLM"]K,
+    api_key=st.secrets["MY_LLM"],
     temperature=1
 )
 
@@ -232,6 +232,7 @@ if user_input:
             )
     else:
         st.warning("Пожалуйста, загрузите документ")
+
 
 
 
