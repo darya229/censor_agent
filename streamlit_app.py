@@ -17,7 +17,7 @@ import json
 import plotly.express as px
 import pandas as pd
 from datetime import datetime
-API_DEEPSEEK=os.getenv("API_DEEPSEEK")
+
 import time
 
 def generate_pdf(markdown_content, filename, plotly_fig=None, df = None):
@@ -47,14 +47,14 @@ def generate_pdf(markdown_content, filename, plotly_fig=None, df = None):
 
 deepseek_llm = ChatDeepSeek(
     model="deepseek-chat",
-    api_key=API_DEEPSEEK,
+    api_key=st.secrets["MY_LLM"],
     temperature=1,
     streaming=True
 )
 
 deepseek_llm_not_streaming = ChatDeepSeek(
     model="deepseek-chat",
-    api_key="sk-3f2c0bab71504aa99dc99c0dda1c0b28",
+    api_key=st.secrets["MY_LLM"],
     temperature=1
 )
 
@@ -190,5 +190,6 @@ if user_input:
             )
     else:
         st.warning("Пожалуйста, загрузите документ")
+
 
 
