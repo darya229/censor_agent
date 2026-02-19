@@ -10,6 +10,8 @@ from loguru import logger
 import plotly.io as pio
 import base64
 from io import BytesIO
+import matplotlib.pyplot as plt
+import numpy as np
 
 load_dotenv()
 import os
@@ -17,10 +19,10 @@ import json
 import plotly.express as px
 import pandas as pd
 from datetime import datetime
-
+API_DEEPSEEK=os.getenv("API_DEEPSEEK")
 import time
-pio.kaleido.scope.mathjax = None  # Отключаем MathJax если не нужен
-def generate_pdf(markdown_content, filename, plotly_fig=None, df = None):
+
+def generate_pdf(markdown_content, filename, df = None):
     pdf = MarkdownPdf()
     pdf.meta["title"] = 'Отчет'
     pdf.meta["author"] = 'AI Assistant'
@@ -28,13 +30,56 @@ def generate_pdf(markdown_content, filename, plotly_fig=None, df = None):
     pdf_content += "*Анализ сентимента*"
 
 
-    if plotly_fig:
-        # Конвертируем plotly график в base64 изображение
-        img_bytes = pio.to_image(plotly_fig, format='png', engine='orca')
-        img_base64 = base64.b64encode(img_bytes).decode('utf-8')
+    if df is not None and not df.empty:
+
+        # Создаем фигуру и оси
+        fig, ax = plt.subplots(figsize=(12, 6))
+
+        # Создаем точечную диаграмму
+        companies = range(len(df))
+        ax.scatter(companies, df['sentiment'], 
+                s=225,  # Размер точек (15^2)
+                c='darkgrey',
+                edgecolors='darkgrey',
+                linewidths=1,
+                zorder=2)
+
+        # Добавляем горизонтальную линию на отметке 5
+        ax.axhline(y=5, color='black', linestyle='-', linewidth=1, zorder=1)
+
+        # Добавляем текст для линии
+        ax.text(0.02, 5.1, 'нейтральный сентимент', 
+                transform=ax.get_yaxis_transform(),
+                fontsize=10,
+                verticalalignment='bottom')
+
+        # Настраиваем подписи
+        ax.set_xlabel('Компания', fontsize=12)
+        ax.set_ylabel('Сентимент', fontsize=12)
+        ax.set_title('Сентимент по компаниям', fontsize=14, pad=15)
+
+        # Устанавливаем метки на оси X
+        ax.set_xticks(companies)
+        ax.set_xticklabels(df['company'], rotation=45, ha='right')
+
+        # Устанавливаем диапазон для оси Y
+        ax.set_ylim(0, 10)
+
+        # Добавляем сетку для лучшей читаемости
+        ax.grid(True, alpha=0.3, linestyle='--', linewidth=0.5)
+
+        # Убираем легенду
+        ax.legend_.remove() if ax.legend_ else None
+
+        # Сохраняем в base64
+        img_bytes = BytesIO()
+        plt.savefig(img_bytes, format='png', dpi=100, bbox_inches='tight')
+        plt.close()
+        
+        img_base64 = base64.b64encode(img_bytes.getvalue()).decode('utf-8')
         pdf_content += f"![График сентимента](data:image/png;base64,{img_base64})\n\n"
 
-    if df is not None and not df.empty:
+
         pdf_content += df.to_markdown()
 
     pdf_content += "#Анализ аналитического отчета  #"
@@ -47,14 +92,14 @@ def generate_pdf(markdown_content, filename, plotly_fig=None, df = None):
 
 deepseek_llm = ChatDeepSeek(
     model="deepseek-chat",
-    api_key=st.secrets["MY_LLM"],
+    api_key=API_DEEPSEEK,
     temperature=1,
     streaming=True
 )
 
 deepseek_llm_not_streaming = ChatDeepSeek(
     model="deepseek-chat",
-    api_key=st.secrets["MY_LLM"],
+    api_key=API_DEEPSEEK,
     temperature=1
 )
 
@@ -149,11 +194,54 @@ if user_input:
             # Показываем график
             st.plotly_chart(fig)
 
+            ### сохраняем в matplotlib формате для передачи в PDF ###
+
+            # # Создаем фигуру и оси
+            # fig_matplotlib, ax = plt.subplots(figsize=(12, 6))
+
+            # # Создаем точечную диаграмму
+            # companies = range(len(df))
+            # ax.scatter(companies, df['sentiment'], 
+            #         s=225,  # Размер точек (15^2)
+            #         c='darkgrey',
+            #         edgecolors='darkgrey',
+            #         linewidths=1,
+            #         zorder=2)
+
+            # # Добавляем горизонтальную линию на отметке 5
+            # ax.axhline(y=5, color='black', linestyle='-', linewidth=1, zorder=1)
+
+            # # Добавляем текст для линии
+            # ax.text(0.02, 5.1, 'нейтральный сентимент', 
+            #         transform=ax.get_yaxis_transform(),
+            #         fontsize=10,
+            #         verticalalignment='bottom')
+
+            # # Настраиваем подписи
+            # ax.set_xlabel('Компания', fontsize=12)
+            # ax.set_ylabel('Сентимент', fontsize=12)
+            # ax.set_title('Сентимент по компаниям', fontsize=14, pad=15)
+
+            # # Устанавливаем метки на оси X
+            # ax.set_xticks(companies)
+            # ax.set_xticklabels(df['company'], rotation=45, ha='right')
+
+            # # Устанавливаем диапазон для оси Y
+            # ax.set_ylim(0, 10)
+
+            # # Добавляем сетку для лучшей читаемости
+            # ax.grid(True, alpha=0.3, linestyle='--', linewidth=0.5)
+
+            # # Убираем легенду
+            # ax.legend_.remove() if ax.legend_ else None
+
+
+
 
             ### Анализируем текст ####
             temp_message = st.empty()
             temp_message.write("⏳ Анализ отчета...")
-            system_instructions = SYSTEM_PROMPT_v1.format(rules=RULES, date = datetime.now().strftime("%Y-%m-%d"))
+            system_instructions = SYSTEM_PROMPT_v2.format(rules=RULES, date = datetime.now().strftime("%Y-%m-%d"))
             user_instructions = USER_PROMT.format(additional_instructions = user_input.get("text", " "),
                                                    analytical_report = content)
             # logger.info(f"Date: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")} \n\n SYSTEM_PROMPT: \n\n {system_instructions} \n")
@@ -173,7 +261,7 @@ if user_input:
                 st.write("✅ Ответ готов")
 
             response = st.write_stream(generate_response)
-            download_content = generate_pdf(response, user_input.files[0].name, fig, df)
+            download_content = generate_pdf(response, user_input.files[0].name, df)
 
             # Сохраняем в буфер
             buffer = BytesIO()
@@ -190,7 +278,5 @@ if user_input:
             )
     else:
         st.warning("Пожалуйста, загрузите документ")
-
-
 
 
