@@ -19,7 +19,7 @@ import pandas as pd
 from datetime import datetime
 
 import time
-
+pio.kaleido.scope.mathjax = None  # Отключаем MathJax если не нужен
 def generate_pdf(markdown_content, filename, plotly_fig=None, df = None):
     pdf = MarkdownPdf()
     pdf.meta["title"] = 'Отчет'
@@ -30,7 +30,7 @@ def generate_pdf(markdown_content, filename, plotly_fig=None, df = None):
 
     if plotly_fig:
         # Конвертируем plotly график в base64 изображение
-        img_bytes = pio.to_image(plotly_fig, format='png')
+        img_bytes = pio.to_image(plotly_fig, format='png', engine='orca')
         img_base64 = base64.b64encode(img_bytes).decode('utf-8')
         pdf_content += f"![График сентимента](data:image/png;base64,{img_base64})\n\n"
 
@@ -190,6 +190,7 @@ if user_input:
             )
     else:
         st.warning("Пожалуйста, загрузите документ")
+
 
 
 
