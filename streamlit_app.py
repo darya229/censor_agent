@@ -28,7 +28,7 @@ def generate_pdf(markdown_content, filename, df = None):
     pdf.meta["author"] = 'AI Assistant'
     pdf_content = f"Отчет: {filename}\n\n "
 
-    pdf_content += "#Анализ аналитического отчета  #"
+    pdf_content += "Анализ аналитического отчета\n\n"
 
     # Добавляем текстовый контент
     pdf_content += markdown_content
@@ -232,6 +232,7 @@ if user_input:
             )
     else:
         st.warning("Пожалуйста, загрузите документ")
+
 
 
 
